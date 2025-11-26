@@ -18,10 +18,13 @@ from djitellopy import Tello
 from drone_debug_logger import DroneDebugLogger
 import cv2, math, time
 import traceback
+import numpy as np
+import env
 
-VIDEO_FEED = False
+VIDEO_FEED = env.video_feed()
 
 def main():
+    render()
     tello, frame_read = connect()
     with DroneDebugLogger() as logger:
         while True:
@@ -35,6 +38,9 @@ def main():
                 print(traceback.format_exc())
                 continue
     end(tello)
+
+
+
 
 
 def connect():
@@ -52,19 +58,30 @@ def connect():
             print(e)
             continue
 
+    return tello
+
+
+def start_feed(tello):
     if not VIDEO_FEED:
-        return tello, None
+        return None
 
+    tello.streamon()
     frame_read = None
-    try:
-        print("obtaining frame read...")
-        tello.streamon()
-        frame_read = tello.get_frame_read()
-    except Exception as e:
-        print(e.__class__.__name__)
-        print(traceback.format_exc())
+    while True:
+        try:
+            print("obtaining frame read...")
+            frame_read = tello.get_frame_read()
+            break
+        except KeyboardInterrupt:
+            raise
+        except Exception as e:
+            print(e.__class__.__name__)
+            print(traceback.format_exc())
+            continue
 
-    return tello, frame_read
+    return frame_read
+
+
 
 
 
@@ -78,6 +95,21 @@ def log(logger, tello):
 
 
 
+
+
+def render(img):
+    if img is not None:
+        cv2.imshow("drone", img)
+
+    # Create a black background for the window so that waitKey works
+    height, width = 360, 480
+    zeros = np.zeros((height, width, 3), np.uint8)
+    cv2.imshow("drone", zeros)
+
+
+
+
+
 def fly(tello, frame_read):
     try:
         # keep_alive(tello)
@@ -87,10 +119,16 @@ def fly(tello, frame_read):
             #  they will freeze while the drone moves.
             img = frame_read.frame
             cv2.imshow("drone", img)
+        else:
+            # Create a black background for the window so that waitKey works
+            height, width = 360, 480
+            img = np.zeros((height, width, 3), np.uint8)
+            cv2.imshow("drone", img)
 
         key = cv2.waitKey(1) & 0xff
         if key == 27: # ESC
-            raise KeyboardInterrupt
+            tello.emergency()
+            print("Emergency landing...")
         elif key == ord('w'):
             print("Moving forward...")
             tello.move_forward(30)
@@ -118,6 +156,9 @@ def fly(tello, frame_read):
         elif key == ord('m'):
             print("Turning motor on...")
             tello.turn_motor_on()
+        elif key == ord('l'):
+            print("Landing...")
+            tello.land()
         elif key == ord('n'):
             print("Turning motor off...")
             tello.turn_motor_off()
@@ -128,6 +169,8 @@ def fly(tello, frame_read):
         print("Failed to end flight gracefully")
         print(e.__class__.__name__)
         print(traceback.format_exc())
+
+
 
 
 

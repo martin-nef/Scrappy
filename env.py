@@ -4,10 +4,14 @@ import os
 load_dotenv()  # reads variables from a .env file and sets them in os.environ
 
 def debug():
-    return os.getenv("DEBUG") == "true"
+    return os.getenv("DEBUG", "false") == "true"
 
 def live_drone():
-    return os.getenv("LIVE") != "false"
+    return os.getenv("LIVE", "true") == "true"
 
 def interval():
-    return os.getenv("INTERVAL")
+    return float(os.getenv("INTERVAL", "0.5"))
+
+def video_feed():
+    return os.getenv("VIDEO_FEED", "true") == "true"
+
