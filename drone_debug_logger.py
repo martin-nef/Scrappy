@@ -11,11 +11,12 @@ class DroneDebugLogger:
         
         timestamp = time.strftime("%Y%m%d-%H%M%S")
         self.filename = os.path.join(self.log_dir, f"flight_data_{timestamp}.json")
-
-    def __enter__(self):
         self.file = open(self.filename, 'a')
         self.file.write("[")
+        self.last_state = None
         print(f"Logging data to {self.filename}")
+    
+    def __enter__(self):
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
@@ -27,7 +28,9 @@ class DroneDebugLogger:
         drone_state should be a dictionary or object with the required attributes.
         """
         state_str = json.dumps(drone_state)
-        print(state_str)
+        if self.last_state != state_str:
+            print(state_str)
+            self.last_state = state_str
         self.file.write(state_str + ",")
         self.file.flush() # Ensure data is written immediately
 

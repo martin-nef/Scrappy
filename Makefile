@@ -6,7 +6,10 @@ build:
 	podman build -t scrappy .
 
 run:
-	podman run --rm -it scrappy
+	podman run --network=host --rm -it scrappy
 
 manual-control: build
-	podman run --rm -it scrappy python manual-control.py
+	podman run --network=host --rm -it scrappy python manual-control.py
+
+console: build
+	podman run --network=host --rm -it scrappy python 

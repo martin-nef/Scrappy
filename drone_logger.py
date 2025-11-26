@@ -25,10 +25,10 @@ class DroneLogger:
         ]
         self.writer.writerow(self.headers)
         print(f"Logging data to {self.filename}")
-
-    def __enter__(self):
         self.file = open(self.filename, 'w', newline='')
         self.writer = csv.writer(self.file)
+
+    def __enter__(self):
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
