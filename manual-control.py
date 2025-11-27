@@ -20,17 +20,25 @@ import cv2, math, time
 import traceback
 import numpy as np
 import env
+from stream_server import start_server_thread
 
 VIDEO_FEED = env.video_feed()
 
 def main():
-    render()
-    tello, frame_read = connect()
+    if not VIDEO_FEED:
+        start_server_thread(None)
+        tello = connect()
+    else:
+        tello = connect()
+        # start_feed(tello)
+
+    time.sleep(1)
+
     with DroneDebugLogger() as logger:
         while True:
             try:
                 log(logger, tello)
-                fly(tello, frame_read)
+                fly(tello)
             except KeyboardInterrupt:
                 break
             except Exception as e:
@@ -44,12 +52,23 @@ def main():
 
 
 def connect():
-    tello = Tello()
+    tello = Tello(host=env.drone_ip())
 
+    i = 0
     while True:
         try:
             print("Connecting...")
-            tello.connect(False)
+            wait = False
+            if i % 2 == 1:
+                wait = True
+            tello.connect(wait)
+            time.sleep(1)
+            # tello.set_video_bitrate(Tello.BITRATE_1MBPS)
+            # tello.set_video_resolution(Tello.RESOLUTION_480P)
+            # tello.set_video_fps(Tello.FPS_15)
+            # tello.set_video_direction(Tello.CAMERA_FORWARD)
+            tello.streamoff()
+            # tello.streamon()
             print("\n\nConnected!!!")
             break
         except KeyboardInterrupt:
@@ -57,29 +76,38 @@ def connect():
         except Exception as e:
             print(e)
             continue
-
     return tello
 
 
 def start_feed(tello):
-    if not VIDEO_FEED:
-        return None
-
+    tello.streamoff()
     tello.streamon()
+    print("Waiting for video stream to stabilize...")
+    time.sleep(2)
+    start_server_thread()
+    return
+
     frame_read = None
+    retry_count = 0
     while True:
         try:
             print("obtaining frame read...")
             frame_read = tello.get_frame_read()
-            break
+            if frame_read:
+                start_server_thread(frame_read)
+                break
         except KeyboardInterrupt:
             raise
         except Exception as e:
             print(e.__class__.__name__)
             print(traceback.format_exc())
+            print("Retrying in 1 second...")
+            time.sleep(1)
+            retry_count += 1
+            if retry_count > 5:
+                print("Max retries exceeded for video stream.")
+                break
             continue
-
-    return frame_read
 
 
 
@@ -97,33 +125,9 @@ def log(logger, tello):
 
 
 
-def render(img):
-    if img is not None:
-        cv2.imshow("drone", img)
-
-    # Create a black background for the window so that waitKey works
-    height, width = 360, 480
-    zeros = np.zeros((height, width, 3), np.uint8)
-    cv2.imshow("drone", zeros)
-
-
-
-
-
-def fly(tello, frame_read):
+def fly(tello):
     try:
         # keep_alive(tello)
-
-        if frame_read is not None:
-            # In reality you want to display frames in a seperate thread. Otherwise
-            #  they will freeze while the drone moves.
-            img = frame_read.frame
-            cv2.imshow("drone", img)
-        else:
-            # Create a black background for the window so that waitKey works
-            height, width = 360, 480
-            img = np.zeros((height, width, 3), np.uint8)
-            cv2.imshow("drone", img)
 
         key = cv2.waitKey(1) & 0xff
         if key == 27: # ESC
@@ -178,7 +182,7 @@ def end(tello):
     try:
         print("Ending flight...")
         tello.land()
-        tello.end()
+        # tello.end()
     except Exception as e:
         print("Failed to end flight gracefully")
         print(e.__class__.__name__)

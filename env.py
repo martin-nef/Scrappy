@@ -15,3 +15,5 @@ def interval():
 def video_feed():
     return os.getenv("VIDEO_FEED", "true") == "true"
 
+def drone_ip():
+    return os.getenv("DRONE_IP", "192.168.10.1")
